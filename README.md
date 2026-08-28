@@ -177,9 +177,12 @@ catalogue below, in the same repo, on the other plane.
 ### The cluster plane
 
 `lib/applications.nix` is the cluster catalogue and `modules/cluster.nix` is the translator that
-turns a declaration into an app in the [nixk3s][nixk3s] grammar. It renders no Kubernetes object of
-its own: the grammar owns the Application, the Namespace, the Deployment and the Service, and this
-repo supplies the one thing the grammar cannot know — what these applications *are*.
+turns a declaration into an app in the [nixk3s][nixk3s] grammar. Its common projection, collision
+guards, volume identity rules and reports come from nixk3s' shared consumer factory; the local tail
+is only the creative-specific hook, resource shape, reports and safety sentences. It renders no
+Kubernetes object of its own: the grammar owns the Application, the Namespace, the Deployment and
+the Service, and this repo supplies the one thing the grammar cannot know — what these applications
+*are*.
 
 Three applications are catalogued: a node-graph image generator, and the two halves of a voice tier
 that are split on the one axis a cluster cares about — *The voice tier* below.
@@ -587,11 +590,11 @@ reconciler:
 
 | Path | Purpose |
 |---|---|
-| `flake.nix` | Flake entry point: `nixosModules.default` (NixOS install), `systemManagerModules.default` (Arch publish), `nixidyModules.default` (the cluster plane), `lib.catalogue`, `lib.applications`, `lib.voices`, and `checks`. Its `nixidy` and `nixk3s` inputs are used by the checks alone — a host importing the package modules pulls in neither. |
+| `flake.nix` | Flake entry point: `nixosModules.default` (NixOS install), `systemManagerModules.default` (Arch publish), `nixidyModules.default` (the cluster plane), `lib.catalogue`, `lib.applications`, `lib.voices`, and `checks`. `nixidy` is checks-only; the cluster export closes over nixk3s' consumer factory, while a host importing only the package modules pulls in neither. |
 | `lib/creative.nix` | The package catalogue — one entry per selected tool, platform-specific package names, and comments recording why each was chosen over the alternatives it was chosen against. |
 | `lib/applications.nix` | The cluster catalogue — what each cluster-side application IS: its port, the directories it reads and writes, whether it burns a graphics device, whether it authenticates anybody, how patient its probe has to be, and which model it serves. No address, no node, no namespace, no device name. |
 | `lib/voices.nix` | The voice-model catalogue — which speech model a workload serves, at what scale, needing a device or not, able to clone a voice or not, under which licence and whether that licence permits commercial use, and which repository the weights come from. Every entry carries the sources it was read from; nothing here is a path. |
-| `modules/cluster.nix` | The translator into the [nixk3s][nixk3s] app grammar. Renders no Kubernetes object of its own; every guard it adds is about the half a declaration must supply and the catalogue cannot. |
+| `modules/cluster.nix` | The bounded nixcreative adapter over nixk3s' shared catalogue-consumer factory. Renders no Kubernetes object of its own; its local hook, reports and guards cover only the half a declaration must supply and the catalogue cannot. |
 | `examples/all/values.nix` | Placeholder values the cluster checks render from. Nothing in it is real. |
 | `modules/nixcreative.nix` | Policy: selection groups and the resolved `archPackages` / `aurPackages` / `nixosPackages` / `unavailableOnNixos` lists. |
 | `modules/nixos.nix`, `modules/arch.nix` | The two backends. The NixOS one force-evaluates every nixpkgs attribute before trusting it (`tryEval`, never a bare existence check — a renamed attribute in nixpkgs becomes a *throwing* alias, which `?` accepts). |

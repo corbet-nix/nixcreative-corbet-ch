@@ -1,10 +1,10 @@
 {
   description = "nixcreative — declarative creative tool selection for creation workflows (DAW, vector, raster, 3D), plus the generative-media applications that run in the cluster instead of on a desk and the speech models they serve.";
 
-  # THE PACKAGE SIDE STILL TAKES NOTHING BUT NIXPKGS. `nixidy` and `nixk3s` below are used by
-  # `checks` ALONE; nothing this flake exports reaches into either, so a host that imports the
-  # package modules never puts a renderer -- or a sibling flake's whole input closure -- into its
-  # own closure.
+  # THE PACKAGE SIDE STILL TAKES NOTHING BUT NIXPKGS. `nixidy` remains checks-only, while the
+  # exported cluster module closes over nixk3s' catalogue-consumer factory. A host importing only
+  # the package modules still puts neither the renderer nor a sibling flake's input closure into
+  # its own closure.
   #
   # They exist because `nix flake check` evaluates no module output on its own. A cluster module
   # with no renderer to evaluate against would have been verified by nobody and would have passed
@@ -18,10 +18,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # THE APP GRAMMAR THIS REPOSITORY CONSUMES, and the point being proven rather than a shortcut:
-    # a consumer imports the grammar itself, and this input exists so the checks can render the
-    # cluster module through the REAL grammar and assert what comes out -- rather than asserting
-    # that a module which merely mentions `nixk3s.apps` evaluates.
+    # THE APP GRAMMAR AND CONSUMER FACTORY THIS REPOSITORY CONSUMES. The checks render through the
+    # real grammar, and the exported cluster module is constructed by the matching factory rather
+    # than carrying another copy of its catalogue projection.
     nixk3s = {
       url = "github:julian-corbet/nixk3s-corbet-ch";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -65,8 +64,10 @@
       # package here, and it was never another repository's SUBJECT either -- so it runs as a
       # workload declared from this module. Only one module in the class, so `.default` is honest
       # rather than invented.
-      nixidyModules.nixcreative = ./modules/cluster.nix;
-      nixidyModules.default = ./modules/cluster.nix;
+      nixidyModules.nixcreative = import ./modules/cluster.nix {
+        mkConsumerModule = nixk3s.lib.mkConsumerModule;
+      };
+      nixidyModules.default = self.nixidyModules.nixcreative;
 
       # Expose every catalogue for introspection, docs, and checks.
       lib.catalogue = import ./lib/creative.nix { };

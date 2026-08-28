@@ -57,12 +57,18 @@
 # one warns rather than refuses for the usual reason -- non-commercial use is perfectly legitimate
 # and whether THIS deployment is commercial is not a fact this repository can see -- but it is not
 # silent either, because a licence read wrong is the expensive kind of mistake.
+{ mkConsumerModule }:
 { config, lib, ... }:
 
 let
   cfg = config.nixcreative;
   platform = cfg.clusterPlatform;
   catalogue = (import ../lib/applications.nix { }).applications;
+  # The shared factory can enforce an unauthenticated-exposure policy from catalogue knowledge,
+  # but nixcreative's established contract deliberately WARNS instead of refusing and has a more
+  # specific sentence about the operator session at stake. Keep that decision in the domain tail:
+  # the factory sees this normalized view while every report and warning below reads the original.
+  factoryCatalogue = lib.mapAttrs (_: entry: entry // { authenticates = true; }) catalogue;
   voices = (import ../lib/voices.nix { }).voices;
 
   declared = lib.filterAttrs (_: w: w.enable) cfg.applications;
@@ -71,41 +77,12 @@ let
   # A catalogue reason is written as a paragraph and quoted back inside a one-line message.
   oneLine = s: lib.concatStringsSep " " (lib.filter (x: x != "") (lib.splitString "\n" s));
 
-  # A whole reference wins over a repository plus a tag, which is what pinning by digest looks
-  # like. The catalogue never carries either: a version is a deployment's choice and a digest is
-  # one deployment's proof of what it is running.
-  #
-  # AND SOMETIMES THE CATALOGUE CARRIES NO REPOSITORY AT ALL, because nobody publishes a runnable
-  # container of that application and every operator builds their own. Then there is nothing to put
-  # a version on and the declaration's whole reference is the only image there is; the assertion
-  # below is what says so in words, and this throw only exists so that a surface which somehow got
-  # past it cannot render a pod with an empty image.
-  imageOf = entry: w:
-    if w.image != null then w.image
-    else if entry.image != null && w.version != null then "${entry.image}:${w.version}"
-    else throw "nixcreative: no image reference -- the catalogue publishes none and the declaration supplies none";
-
-  portsOf = entry: lib.mapAttrs (_: number: { inherit number; }) entry.ports;
-
   # WHAT A VOLUME IS CALLED IN THE MANIFEST, which is not the same question as what the directory
   # IS. The catalogue's key is the name and the default; a declaration overrides it for exactly one
   # reason -- a live object already carries a different one, and a rename is a rollout. It reaches
   # the manifest and nothing else: the path inside the container stays the catalogue's, so this
   # cannot become a second, competing vocabulary for the same directories.
   volumeNameOf = key: backing: if backing.volumeName != null then backing.volumeName else key;
-
-  # The split in one function: WHERE inside the container comes from the catalogue, WHAT BACKS IT
-  # comes from the declaration, and neither side can supply the other's half.
-  stateOf = entry: w:
-    lib.mapAttrs'
-      (key: backing: lib.nameValuePair (volumeNameOf key backing) {
-        # `or null` rather than a raw attribute error: a declaration that backs a directory this
-        # application does not use is a real mistake with a real message below, and a Nix
-        # "attribute missing" thrown from inside the renderer is not that message.
-        mountPath = entry.state.${key} or null;
-        inherit (backing) claim hostPath hostPathType readOnly;
-      })
-      w.state;
 
   # ── The hook point ────────────────────────────────────────────────────────────────────────────
   #
@@ -171,11 +148,6 @@ let
       };
     };
 
-  probesOf = entry:
-    lib.optionalAttrs (entry.readiness != null) {
-      readiness = { port = entry.primaryPort; } // entry.readiness;
-    };
-
   # Whole Secrets, loaded wholesale. Nothing here can carry a secret's CONTENT, which is what makes
   # a declaration written against this module safe to publish.
   secretsOf = w:
@@ -188,36 +160,22 @@ let
   # command line it is given. What the output guard reads.
   toldOf = entry: w: lib.attrValues (envOf entry w) ++ argsOf entry w;
 
-  # Handed to the band model only when the consumer says it is part of the render: `origin` and
-  # `slot` are ITS terms, and defining them into a render that does not declare them is an eval
-  # error rather than a graceful no-op.
-  addressingOf = w:
-    lib.optionalAttrs (platform.origin != null) {
-      origin = platform.origin;
-      inherit (w) slot;
-    };
-
-  mkApp = x:
-    let inherit (x) entry w; in
-    {
-      inherit (w) namespace createNamespace project exposure scaling resources adopt;
-      inherit (entry) gpu;
-      image = imageOf entry w;
-      ports = portsOf entry;
+  # The factory owns the common catalogue projection. This tail carries only the three established
+  # declaration shapes that are intentionally outside its common surface: whole-Secret imports,
+  # the legacy nested resource record, and the catalogue/declaration split hook recipe above.
+  extendApp = { app, entry, w, ... }:
+    app
+    // {
       # The hook's volume is one this module builds, not one a declaration backs, so it is added
-      # AFTER the guard that says every catalogued directory must be backed and no other may be.
-      state = stateOf entry w // hookVolumeOf entry w;
+      # AFTER the shared state guard has compared the declaration with the catalogue.
+      state = app.state // hookVolumeOf entry w;
       secrets = secretsOf w;
-      env = envOf entry w;
-      args = argsOf entry w;
-      probes = probesOf entry;
+      resources = w.resources;
     }
-    // lib.optionalAttrs (w.wake != null) { inherit (w) wake; }
     # A LIST, and it stays one: the kubelet runs init containers in written order, so for them the
     # order is the semantics. One entry today, and anything this module ever adds below it runs
     # after it.
-    // lib.optionalAttrs (hookInitOf entry w != [ ]) { init = hookInitOf entry w; }
-    // addressingOf w;
+    // lib.optionalAttrs (hookInitOf entry w != [ ]) { init = hookInitOf entry w; };
 
   # ── Assertions ────────────────────────────────────────────────────────────────────────────────
 
@@ -474,47 +432,6 @@ let
         entry.serves)
     workloads;
 
-  # THE WARNING FOR A RENAME THAT INVERTS A NESTED PAIR. The catalogue names these directories so
-  # that a parent sorts before the child it contains -- mounts are emitted in attribute-name order,
-  # and a shallower mount emitted last covers the deeper one inside it. A rename is free to break
-  # that, because a live object's names were not chosen with it in mind; what a rename may not do is
-  # break it QUIETLY. It warns rather than refuses because the runtime the manifest lands on decides
-  # whether the emitted order is the runtime order, and which runtime that is, is not visible here.
-  #
-  # THE GRAMMAR UNDERNEATH WARNS ABOUT THE SYMPTOM -- a mount emitted before the mount that covers
-  # it -- and it tells the reader to rename the volume keys. From here that advice is unfollowable:
-  # the keys are the catalogue's and a consumer does not own them. This names the CAUSE instead, on
-  # the only line that could have been written differently.
-  nestingWarnings = lib.concatMap
-    (x:
-      let
-        inherit (x) name w entry;
-        landed = lib.mapAttrsToList
-          (key: backing: { vol = volumeNameOf key backing; path = entry.state.${key} or null; })
-          w.state;
-        inverted = lib.concatMap
-          (parent: lib.concatMap
-            (child:
-              lib.optional
-                (parent.path != null && child.path != null
-                  && lib.hasPrefix "${parent.path}/" child.path
-                  && child.vol < parent.vol)
-                "`${child.vol}` (${child.path}) is emitted before `${parent.vol}` (${parent.path})")
-            landed)
-          landed;
-      in
-      lib.optional (inverted != [ ]) {
-        when = true;
-        message =
-          "nixcreative: application `${name}` renames a volume so that a directory is emitted before the "
-          + "one it lives inside: "
-          + lib.concatStringsSep "; " inverted
-          + ". The catalogue's own names sort the parent first for exactly this reason. Kubernetes does "
-          + "not promise to reorder mounts, so either pin the order where these objects are rendered or "
-          + "keep the catalogue's names.";
-      })
-    workloads;
-
   warnings = lib.concatMap
     (x:
       let inherit (x) name w entry; in
@@ -533,13 +450,6 @@ let
             + "weights and the output directory. This warns rather than refuses because whether an "
             + "authenticating front sits between it and the world is something a deployment can see and "
             + "this repository cannot -- if there is none, close it.";
-        }
-        {
-          when = w.slot != null && platform.origin == null;
-          message =
-            "nixcreative: application `${name}` claims slot ${toString w.slot}, and "
-            + "`nixcreative.clusterPlatform.origin` is unset -- so the number is checked for collisions "
-            + "inside this repository and by nothing for which RANGE it may come from.";
         }
       ])
     workloads;
@@ -846,170 +756,156 @@ let
       '';
     };
   };
+
+  versionOption = lib.mkOption {
+    type = lib.types.nullOr lib.types.str;
+    default = null;
+    description = ''
+      Which version this workload runs, used as the tag on the catalogue's repository. Defaulted
+      NOWHERE -- a floating tag is not a version anybody picked, and on a workload whose cold
+      start is measured in minutes it is a debugging session nobody can reproduce.
+
+      `null` is not "whatever is latest": it is the statement that this workload's image does
+      not come from a repository plus a tag. It is the right value in exactly two cases, and
+      both are refused if the declaration does not then carry a whole `image` reference -- one
+      where the deployment pins by digest, and one where the catalogue publishes no repository
+      at all because nobody ships a runnable container of that application.
+    '';
+  };
+
+  reportOptions = {
+    clusterDeviceTenants = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      readOnly = true;
+      default = map (x: x.name) (lib.filter (x: x.entry.gpu) workloads);
+      defaultText = lib.literalExpression "every declared workload whose catalogue entry needs a graphics device";
+      description = ''
+        Which of the declared workloads put work on a graphics device, by declaration name. Nothing is
+        rendered from it: whether the device they name is one card or eight, and what happens when two
+        of them want it at once, is decided by whoever owns the hardware. This is the list that layer
+        reads so it does not have to re-derive it from the catalogue and get a different answer.
+      '';
+    };
+
+    clusterVoices = lib.mkOption {
+      type = lib.types.attrsOf (lib.types.listOf lib.types.str);
+      readOnly = true;
+      default = lib.listToAttrs
+        (map (x: lib.nameValuePair x.name x.entry.serves)
+          (lib.filter (x: x.entry.serves != [ ]) workloads));
+      defaultText = lib.literalExpression "every declared workload that serves a named model";
+      description = ''
+        workload -> the models it serves, by key into `lib/voices.nix`. Nothing is rendered from it:
+        which model an application serves is baked into the image it runs, so there is no manifest
+        field for it. This exists so that a consumer can answer "what voices does this cluster
+        actually serve, and under what licences" from the configuration rather than by opening a
+        container.
+
+        A workload whose model set is CONTENT -- a graph editor running whatever checkpoints a
+        deployment installed -- appears nowhere in here, which is the honest answer rather than an
+        empty one.
+      '';
+    };
+
+    voiceLicenceReview = lib.mkOption {
+      type = lib.types.attrsOf lib.types.str;
+      readOnly = true;
+      default = lib.mapAttrs (_: v: v.licence.caveat)
+        (lib.filterAttrs (_: v: v.licence.commercialUse != "yes") voices);
+      defaultText = lib.literalExpression "every catalogued voice model whose licence is not plainly commercial-friendly";
+      description = ''
+        model -> what its licence restricts, for every model in the catalogue whose licence does not
+        clearly permit commercial use. Derived from the catalogue and NOT from what is declared, on
+        purpose: the question it answers is asked before a workload exists, by whoever is choosing
+        which model to serve.
+
+        It is a list of restrictions rather than a list of refusals. Two of the entries carry
+        permissive CODE and non-commercial WEIGHTS, which is the shape that gets read wrong -- and
+        one of those carries no licence tag at all, so anything that keys on the tag records it as
+        unlicensed and moves on.
+      '';
+    };
+  };
+
+  factoryModule = mkConsumerModule {
+    namespace = "nixcreative";
+
+    roots.applications = {
+      catalogue = factoryCatalogue;
+      selector = "app";
+
+      # Preserve the exact established declaration vocabulary. State is an enabled common term
+      # refined to nixcreative's claim-or-hostPath subtype, so the factory still owns its renderer,
+      # volume identity, mount ordering, and central guards. Resources, image, and wake retain their
+      # legacy public shapes without acquiring the factory's generic resource/image/wake warnings.
+      # Slot stays common so the factory is the single missing-origin warning authority.
+      enabledOptions = [
+        "namespace"
+        "createNamespace"
+        "project"
+        "slot"
+        "exposure"
+        "scaling"
+        "adopt"
+        "state"
+        "env"
+        "args"
+      ];
+
+      extraOptions = commonOptions // { version = versionOption; };
+      extend = extendApp;
+
+      # Keep the established domain sentences executable. The shared factory now also owns the
+      # structural state, image, namespace-anchor, slot, volume-name, and collision invariants;
+      # these assertions retain nixcreative's sharper reasons and protect its unique hook/output
+      # semantics without weakening either layer.
+      assertions = _contexts:
+        stateAssertions ++ existenceAssertions ++ outputAssertions ++ imageAssertions
+        ++ servesAssertions ++ anchorAssertions ++ slotAssertions
+        ++ volumeNameAssertions ++ hookAssertions;
+
+      # Mount-order warnings are now factory-owned and use the same resolved volume names as the
+      # renderer. These retain the two domain warnings and the voice-model licence review.
+      warnings = _contexts: warnings ++ licenceWarnings;
+
+      description = ''
+        The generative-media applications that run in the cluster, keyed by a name of your choosing.
+
+        THE ENUM IS THE PLACEMENT RULE. It is built from `lib/applications.nix`, so an application
+        this repository does not catalogue is not a refused value here -- it is not a value. What
+        belongs in that catalogue is what this repository's gates already decide: a tool whose output
+        records judgements only its operator made, with a display mode of its own, whose working set
+        is model weights. A model server that answers an API and authors nothing fails the second
+        gate no matter what it is made of, and has an owner elsewhere.
+      '';
+
+      example = lib.literalExpression ''
+        {
+          example-graphs = {
+            app = "comfyui";
+            version = "0.0.0";
+            exposure = "nb";
+            slot = 42;
+            scaling = "scale-to-zero";
+            wake = "sablier";
+            state.models.hostPath = "/example/weights";
+            state.home = { hostPath = "/example/state/graphs"; hostPathType = "DirectoryOrCreate"; };
+            state.output.hostPath = "/example/renders";
+            env.HSA_OVERRIDE_GFX_VERSION = "0.0.0";
+            hook = {
+              configMap = "example-pre-start";
+              installerImage = "busybox:stable@sha256:0000...";
+            };
+          };
+        }
+      '';
+    };
+
+    # clusterSlots is the factory's identical built-in report. The three subject-specific reports
+    # retain their established names, types, defaults, ordering, and read-only contract here.
+    extraNamespaceOptions = reportOptions;
+  };
 in
 {
-  options.nixcreative.clusterPlatform = {
-    namespace = lib.mkOption {
-      type = lib.types.str;
-      description = ''
-        Namespace these applications share unless a declaration says otherwise. REQUIRED, and
-        defaulted nowhere: a namespace is one cluster's fact, and a public repository that shipped
-        a plausible-looking default would be shipping somebody's real one.
-      '';
-    };
-
-    project = lib.mkOption {
-      type = lib.types.str;
-      description = ''
-        Delivery project their Applications belong to unless a declaration says otherwise.
-        Required for the same reason as `namespace`.
-      '';
-    };
-
-    origin = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = null;
-      description = ''
-        THE IDENTITY THIS REPOSITORY'S APPLICATIONS ARE ADDRESSED UNDER, when the render composes
-        the band model. A repository naming itself is not a fleet fact; which band that name binds
-        is, and it lives in whatever repository owns the fleet. Left null, slots are still checked
-        for collisions here and by nothing for range.
-      '';
-    };
-  };
-
-  options.nixcreative.applications = lib.mkOption {
-    default = { };
-    description = ''
-      The generative-media applications that run in the cluster, keyed by a name of your choosing.
-
-      THE ENUM IS THE PLACEMENT RULE. It is built from `lib/applications.nix`, so an application
-      this repository does not catalogue is not a refused value here -- it is not a value. What
-      belongs in that catalogue is what this repository's gates already decide: a tool whose output
-      records judgements only its operator made, with a display mode of its own, whose working set
-      is model weights. A model server that answers an API and authors nothing fails the second
-      gate no matter what it is made of, and has an owner elsewhere.
-    '';
-    example = lib.literalExpression ''
-      {
-        example-graphs = {
-          app = "comfyui";
-          version = "0.0.0";
-          exposure = "nb";
-          slot = 42;
-          scaling = "scale-to-zero";
-          wake = "sablier";
-          state.models.hostPath = "/example/weights";
-          state.home = { hostPath = "/example/state/graphs"; hostPathType = "DirectoryOrCreate"; };
-          state.output.hostPath = "/example/renders";
-          env.HSA_OVERRIDE_GFX_VERSION = "0.0.0";
-          hook = {
-            configMap = "example-pre-start";
-            installerImage = "busybox:stable@sha256:0000...";
-          };
-        };
-      }
-    '';
-    type = lib.types.attrsOf (lib.types.submodule ({ name, ... }: {
-      options = commonOptions // {
-        app = lib.mkOption {
-          type = lib.types.enum (lib.attrNames catalogue);
-          description = "Which application, from the catalogue. Available: ${lib.concatStringsSep ", " (lib.attrNames catalogue)}.";
-        };
-
-        version = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          description = ''
-            Which version this workload runs, used as the tag on the catalogue's repository. Defaulted
-            NOWHERE -- a floating tag is not a version anybody picked, and on a workload whose cold
-            start is measured in minutes it is a debugging session nobody can reproduce.
-
-            `null` is not "whatever is latest": it is the statement that this workload's image does
-            not come from a repository plus a tag. It is the right value in exactly two cases, and
-            both are refused if the declaration does not then carry a whole `image` reference -- one
-            where the deployment pins by digest, and one where the catalogue publishes no repository
-            at all because nobody ships a runnable container of that application.
-          '';
-        };
-      };
-    }));
-  };
-
-  # ── Computed, read-only ───────────────────────────────────────────────────────────────────────
-  options.nixcreative.clusterSlots = lib.mkOption {
-    type = lib.types.attrsOf lib.types.ints.unsigned;
-    readOnly = true;
-    default = lib.listToAttrs
-      (map (x: lib.nameValuePair x.name x.w.slot) (lib.filter (x: x.w.slot != null) workloads));
-    defaultText = lib.literalExpression "every declared workload that claims a slot";
-    description = ''
-      workload -> the position it claims. Nothing is rendered from it here: what an address looks
-      like is the private layer's business, and this is what that layer reads to build one.
-    '';
-  };
-
-  # ── Computed, read-only ───────────────────────────────────────────────────────────────────────
-  options.nixcreative.clusterDeviceTenants = lib.mkOption {
-    type = lib.types.listOf lib.types.str;
-    readOnly = true;
-    default = map (x: x.name) (lib.filter (x: x.entry.gpu) workloads);
-    defaultText = lib.literalExpression "every declared workload whose catalogue entry needs a graphics device";
-    description = ''
-      Which of the declared workloads put work on a graphics device, by declaration name. Nothing is
-      rendered from it: whether the device they name is one card or eight, and what happens when two
-      of them want it at once, is decided by whoever owns the hardware. This is the list that layer
-      reads so it does not have to re-derive it from the catalogue and get a different answer.
-    '';
-  };
-
-  # ── Computed, read-only ───────────────────────────────────────────────────────────────────────
-  options.nixcreative.clusterVoices = lib.mkOption {
-    type = lib.types.attrsOf (lib.types.listOf lib.types.str);
-    readOnly = true;
-    default = lib.listToAttrs
-      (map (x: lib.nameValuePair x.name x.entry.serves)
-        (lib.filter (x: x.entry.serves != [ ]) workloads));
-    defaultText = lib.literalExpression "every declared workload that serves a named model";
-    description = ''
-      workload -> the models it serves, by key into `lib/voices.nix`. Nothing is rendered from it:
-      which model an application serves is baked into the image it runs, so there is no manifest
-      field for it. This exists so that a consumer can answer "what voices does this cluster
-      actually serve, and under what licences" from the configuration rather than by opening a
-      container.
-
-      A workload whose model set is CONTENT -- a graph editor running whatever checkpoints a
-      deployment installed -- appears nowhere in here, which is the honest answer rather than an
-      empty one.
-    '';
-  };
-
-  # ── Computed, read-only ───────────────────────────────────────────────────────────────────────
-  options.nixcreative.voiceLicenceReview = lib.mkOption {
-    type = lib.types.attrsOf lib.types.str;
-    readOnly = true;
-    default = lib.mapAttrs (_: v: v.licence.caveat)
-      (lib.filterAttrs (_: v: v.licence.commercialUse != "yes") voices);
-    defaultText = lib.literalExpression "every catalogued voice model whose licence is not plainly commercial-friendly";
-    description = ''
-      model -> what its licence restricts, for every model in the catalogue whose licence does not
-      clearly permit commercial use. Derived from the catalogue and NOT from what is declared, on
-      purpose: the question it answers is asked before a workload exists, by whoever is choosing
-      which model to serve.
-
-      It is a list of restrictions rather than a list of refusals. Two of the entries carry
-      permissive CODE and non-commercial WEIGHTS, which is the shape that gets read wrong -- and
-      one of those carries no licence tag at all, so anything that keys on the tag records it as
-      unlicensed and moves on.
-    '';
-  };
-
-  config = {
-    nixk3s.apps = lib.listToAttrs (map (x: lib.nameValuePair x.name (mkApp x)) workloads);
-    nixidy.assertions =
-      stateAssertions ++ existenceAssertions ++ outputAssertions ++ imageAssertions
-      ++ servesAssertions ++ anchorAssertions ++ slotAssertions
-      ++ volumeNameAssertions ++ hookAssertions;
-    nixidy.warnings = warnings ++ licenceWarnings ++ nestingWarnings;
-  };
+  imports = [ factoryModule ];
 }

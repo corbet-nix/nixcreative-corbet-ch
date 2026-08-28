@@ -70,6 +70,14 @@ let
       lib.sort (a: b: a < b) (lib.attrNames goodCfg.nixk3s.apps)
       == [ "example-cloning" "example-graphs" "example-narration" "example-studio" ];
 
+    "the established slot report is preserved by the shared factory" =
+      goodCfg.nixcreative.clusterSlots == {
+        example-cloning = 15;
+        example-graphs = 12;
+        example-narration = 14;
+        example-studio = 13;
+      };
+
     "the catalogue supplies the port, and the declaration never states one" =
       goodCfg.nixk3s.apps.example-graphs.ports.http.number == 8188
       && goodCfg.nixk3s.apps.example-studio.ports.http.number == 8188;
@@ -322,13 +330,13 @@ let
     # rename is allowed to break that -- a live object's names were not chosen with it in mind --
     # and is not allowed to break it quietly.
     "a rename that puts a directory before the one it lives inside warns" =
-      warnsWith "is emitted before"
+      warnsWith "now sorts before"
         (with' { nixcreative.applications.example-graphs.state.home.volumeName = "root"; });
 
     "and neither warning fires on the example surface itself" =
       !(warnsWith "nothing brings it back" base)
       && !(warnsWith "authenticates nobody" base)
-      && !(warnsWith "is emitted before" base);
+      && !(warnsWith "now sorts before" base);
   };
 
   failed = lib.filter (n: !results.${n}) (lib.attrNames results);
