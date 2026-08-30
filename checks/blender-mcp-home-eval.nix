@@ -61,6 +61,9 @@ let
       has integration.sourceRevision registration
       && has "projects.blender.org/lab/blender_mcp.git" registration;
 
+    "Codex registration pins the compatible MCP Python SDK" =
+      has integration.pythonMcpRequirement registration;
+
     "Codex registration prompts before every Blender tool call" =
       has ''default_tools_approval_mode = "prompt"'' registration;
 

@@ -84,7 +84,13 @@ let
     ${managedBegin}
     [mcp_servers.blender]
     command = ${builtins.toJSON cfg.uvxBinary}
-    args = ["--from", ${builtins.toJSON integration.serverSource}, "blender-mcp"]
+    args = [
+      "--with"
+      ${builtins.toJSON integration.pythonMcpRequirement}
+      "--from"
+      ${builtins.toJSON integration.serverSource}
+      "blender-mcp"
+    ]
     startup_timeout_sec = ${toString cfg.codex.startupTimeoutSeconds}
     tool_timeout_sec = ${toString cfg.codex.toolTimeoutSeconds}
     default_tools_approval_mode = "prompt"
