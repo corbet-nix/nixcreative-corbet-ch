@@ -9,6 +9,10 @@ let
   fullVector = evalWith { vector = [ "inkscape" ]; };
   fullRaster = evalWith { raster = [ "krita" ]; };
   full3d = evalWith { "3d" = [ "blender" ]; };
+  blenderMcp = evalWith {
+    "3d" = [ "blender" ];
+    blender.mcp.enable = true;
+  };
   all = evalWith {
     daw = [ "qtractor" ];
     vector = [ "inkscape" ];
@@ -40,6 +44,13 @@ let
     "3d selection resolves the exact name" =
       full3d.archPackages == [ "blender" ]
       && full3d.unavailableOnNixos == [ ];
+
+    "blender alone does not pull MCP runtime packages" =
+      full3d.archPackages == [ "blender" ];
+
+    "official Blender MCP adds its Arch runtime dependency" =
+      blenderMcp.archPackages == [ "blender" "python-cattrs" ]
+      && blenderMcp.aurPackages == [ ];
 
     "groups compose into one selected list" =
       lib.length all.selected == 4;

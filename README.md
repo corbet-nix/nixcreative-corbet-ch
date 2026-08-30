@@ -134,6 +134,50 @@ not encoder-bound, only export is — was raised and settled the other way. This
 already at work for the stylus note-taker, just decided on structure rather than on precedence: a
 gate that admits a tool is not a claim on a tool another catalogue already owns.
 
+## Blender's official MCP integration
+
+Blender is a package-plane tool, and the bridge that lets an MCP client operate the open Blender
+session belongs with it. `nixcreative.blender.mcp.enable` adds the runtime dependency the Arch
+Blender package's extension manager imports, while `homeManagerModules.blender-mcp` owns the
+per-user half:
+
+- the official Blender Lab extension archive, pinned to its published hash;
+- installation and enablement through Blender's own extension CLI, deferred while Blender is open
+  so its binary preferences are never overwritten from a stale process;
+- loopback-only auto-start on port 9876; and
+- a tagged Codex `config.toml` block that launches the matching official server through `uvx`,
+  pinned to the release commit and prompting before every tool call.
+
+The host-level `uv` binary is deliberately not recatalogued here. It is a development-tool floor;
+this module declares only what Blender needs from it. A foreign-distro consumer supplies absolute
+binary paths as values because the public mechanism cannot know where that host's backend puts
+Blender, uvx, or Codex.
+
+```nix
+# System-manager plane: packages and Blender's Arch runtime dependency.
+{
+  nixcreative."3d" = [ "blender" ];
+  nixcreative.blender.mcp.enable = true;
+
+  nixarch.packages.pacman = config.nixcreative.archPackages;
+}
+
+# Home Manager plane: official add-on, preferences, and MCP client registration.
+{
+  imports = [ inputs.nixcreative.homeManagerModules.blender-mcp ];
+
+  nixcreative.blender.mcp = {
+    enable = true;
+    blenderBinary = "/usr/bin/blender";
+    uvxBinary = "/usr/bin/uvx";
+    codex.binary = "/usr/bin/codex";
+  };
+}
+```
+
+The bridge executes model-generated Python inside Blender. Keeping its listener on loopback limits
+who can connect; it does not sandbox what an approved tool call can do as the desktop user.
+
 ## Gate 2 in full: anything with weights is a workload, not a package
 
 The heavy end of generative work — image and video model inference — runs on the cluster, which

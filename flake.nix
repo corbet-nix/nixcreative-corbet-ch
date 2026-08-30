@@ -50,6 +50,7 @@
       homeManagerModules.nixcreative = ./home/nixcreative.nix;
       homeManagerModules.default = ./home/nixcreative.nix;
       homeManagerModules.install = ./home/nixcreative.nix;
+      homeManagerModules.blender-mcp = ./home/blender-mcp.nix;
 
       # Install plane: NixOS host packages.
       nixosModules.default = ./modules/nixos.nix;
@@ -85,6 +86,7 @@
         in
         {
           catalogue-eval = import ./checks/catalogue-eval.nix { inherit pkgs; };
+          blender-mcp-home-eval = import ./checks/blender-mcp-home-eval.nix { inherit pkgs; };
 
           # The voice catalogue's own evidence rule, and the seam between the two `lib/`
           # catalogues. Pure data, so it is honest on every system rather than narrowed like the

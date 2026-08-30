@@ -9,6 +9,7 @@
 let
   cfg = config.nixcreative;
   cat = import ../lib/creative.nix { };
+  blenderMcp = import ../lib/blender-mcp.nix;
 
   mkGroup = name: table: lib.mkOption {
     type = lib.types.listOf (lib.types.enum (lib.attrNames table));
@@ -24,6 +25,8 @@ let
   ];
 in
 {
+  imports = [ ./blender-mcp-options.nix ];
+
   options.nixcreative = {
     daw = mkGroup "digital audio workstation tools" cat.daw;
     vector = mkGroup "vector illustration tools" cat.vector;
@@ -82,7 +85,10 @@ in
 
   config = {
     nixcreative.selected = selected;
-    nixcreative.archPackages = lib.unique (map (t: t.arch) (lib.filter (t: !(t.aur or false)) selected));
+    nixcreative.archPackages = lib.unique (
+      (map (t: t.arch) (lib.filter (t: !(t.aur or false)) selected))
+      ++ lib.optionals cfg.blender.mcp.enable blenderMcp.archRuntimePackages
+    );
     nixcreative.aurPackages = lib.unique (map (t: t.arch) (lib.filter (t: t.aur or false) selected));
     nixcreative.nixosPackages = lib.unique (map (t: t.nixpkgs) (lib.filter (t: t.nixpkgs != null) selected));
     nixcreative.unavailableOnNixos = lib.unique (map (t: t.arch) (lib.filter (t: t.nixpkgs == null) selected));
