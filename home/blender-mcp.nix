@@ -85,10 +85,10 @@ let
     [mcp_servers.blender]
     command = ${builtins.toJSON cfg.uvxBinary}
     args = [
-      "--with"
-      ${builtins.toJSON integration.pythonMcpRequirement}
-      "--from"
-      ${builtins.toJSON integration.serverSource}
+      "--with",
+      ${builtins.toJSON integration.pythonMcpRequirement},
+      "--from",
+      ${builtins.toJSON integration.serverSource},
       "blender-mcp"
     ]
     startup_timeout_sec = ${toString cfg.codex.startupTimeoutSeconds}

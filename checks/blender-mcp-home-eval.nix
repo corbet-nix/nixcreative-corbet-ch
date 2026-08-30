@@ -79,7 +79,7 @@ if failed == [ ] then
     addon = cfg.home.file.".local/share/nixcreative/blender-mcp/mcp-${integration.version}.zip".source;
     registrationScript = pkgs.writeShellScript "register-blender-mcp" registration;
     setupScript = pkgs.writeText "setup-blender-mcp" cfg.home.file.".local/share/nixcreative/blender-mcp/setup".text;
-    nativeBuildInputs = [ pkgs.unzip ];
+    nativeBuildInputs = [ pkgs.python3 pkgs.unzip ];
   }
     ''
       ${pkgs.runtimeShell} -n "$registrationScript"
@@ -107,6 +107,27 @@ if failed == [ ] then
       grep -F '[mcp_servers.existing]' /build/home/.codex/config.toml
       test "$(grep -Fc '# BEGIN nixcreative: blender-mcp' /build/home/.codex/config.toml)" -eq 1
       grep -F 'default_tools_approval_mode = "prompt"' /build/home/.codex/config.toml
+
+      # Parse the installed file, not merely the Nix string which generates it. This catches
+      # invalid TOML punctuation while also proving that uvx receives the exact dependency and
+      # pinned source arguments in their required order.
+      python - <<'PY'
+      import pathlib
+      import tomllib
+
+      config_path = pathlib.Path("/build/home/.codex/config.toml")
+      with config_path.open("rb") as handle:
+          config = tomllib.load(handle)
+
+      blender = config["mcp_servers"]["blender"]
+      assert blender["args"] == [
+          "--with",
+          "${integration.pythonMcpRequirement}",
+          "--from",
+          "${integration.serverSource}",
+          "blender-mcp",
+      ]
+      PY
 
       touch "$out"
     ''
