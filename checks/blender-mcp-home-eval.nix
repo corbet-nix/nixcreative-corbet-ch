@@ -82,6 +82,15 @@ if failed == [ ] then
       ${pkgs.runtimeShell} -n "$registrationScript"
       ${pkgs.runtimeShell} -n "$setupScript"
 
+      # Execute the staged file itself, not only `bash -n` its contents. This catches a missing
+      # interpreter line, which systemd reports as status=203/EXEC before the script can retry.
+      install -m 0755 "$setupScript" executable-setup
+      set +e
+      ./executable-setup
+      setup_status=$?
+      set -e
+      test "$setup_status" -eq 75
+
       test -s "$addon"
       unzip -p "$addon" blender_manifest.toml > manifest.toml
       grep -F 'id = "mcp"' manifest.toml

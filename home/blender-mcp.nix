@@ -39,6 +39,7 @@ let
   '';
 
   setupScript = ''
+    #!${pkgs.runtimeShell}
     set -eu
 
     blender=${lib.escapeShellArg cfg.blenderBinary}
