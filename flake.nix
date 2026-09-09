@@ -22,7 +22,7 @@
     # real grammar, and the exported cluster module is constructed by the matching factory rather
     # than carrying another copy of its catalogue projection.
     nixk3s = {
-      url = "github:julian-corbet/nixk3s-corbet-ch";
+      url = "git+https://github.com/julian-corbet/nixk3s-corbet-ch";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixidy.follows = "nixidy";
     };
