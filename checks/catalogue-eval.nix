@@ -41,6 +41,12 @@ let
       fullRaster.archPackages == [ "krita" ]
       && fullRaster.unavailableOnNixos == [ ];
 
+    "aur-only raster tool routes to aurPackages, never pacman" =
+      let sel = evalWith { raster = [ "krita" "ccti" ]; }; in
+      sel.archPackages == [ "krita" ]
+      && sel.aurPackages == [ "ccti" ]
+      && sel.unavailableOnNixos == [ "ccti" ];
+
     "3d selection resolves the exact name" =
       full3d.archPackages == [ "blender" ]
       && full3d.unavailableOnNixos == [ ];

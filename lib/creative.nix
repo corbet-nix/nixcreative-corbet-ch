@@ -39,6 +39,15 @@
       nixpkgs = "krita";
       description = "Raster artwork and digital painting.";
     };
+    # Agentic image authoring: authors raster images through ComfyUI rather than
+    # painting pixels, so it files as image creation. AUR-only (first `aur = true`
+    # entry in this catalogue) with no nixpkgs equivalent.
+    ccti = {
+      arch = "ccti";
+      aur = true;
+      nixpkgs = null;
+      description = "Agentic ComfyUI image chat with inline terminal rendering.";
+    };
   };
 
   # 3D, explicitly not video editing: blender authors scenes and renders, it does not cut footage.
