@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Evaluates the Blender MCP Home Manager integration against the smallest honest host-option
 # surface. This checks rendered behavior without importing Home Manager as a flake dependency.
 { pkgs, lib ? pkgs.lib }:

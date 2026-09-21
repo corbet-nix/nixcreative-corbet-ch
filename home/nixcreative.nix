@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Home-manager backend — installs resolved creator tools to `home.packages` while surfacing stale
 # mappings as warnings rather than hard failures.
 { config, lib, pkgs, ... }:

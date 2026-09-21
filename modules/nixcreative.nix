@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # nixcreative — creator tooling, declared by intention:
 # audio editors, image editors, video editors, and studio extras.

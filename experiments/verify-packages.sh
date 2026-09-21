@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Re-verify the package catalogue against a real pacman database and a real nixpkgs revision.
 #

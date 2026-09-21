@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 let
   version = "1.0.0";
   sourceRevision = "03004fd0216bfe5e0a3d9ac9b47d5efadc3d78c4";

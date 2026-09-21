@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 {
   description = "nixcreative — declarative creative tool selection for creation workflows (DAW, vector, raster, 3D), plus the generative-media applications that run in the cluster instead of on a desk and the speech models they serve.";
 
@@ -22,7 +23,7 @@
     # real grammar, and the exported cluster module is constructed by the matching factory rather
     # than carrying another copy of its catalogue projection.
     nixk3s = {
-      url = "git+https://github.com/julian-corbet/nixk3s-corbet-ch";
+      url = "git+https://github.com/corbet-nix/nixk3s-corbet-ch";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixidy.follows = "nixidy";
     };

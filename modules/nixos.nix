@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # NixOS backend for nixcreative. Installs resolved creators through
 # `environment.systemPackages` while surfacing stale mappings as warnings.

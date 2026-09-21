@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # nixcreative's cluster surface: declare which generative-media applications run in the cluster,
 # and render them.

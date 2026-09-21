@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Evaluates modules/nixcreative.nix and verifies catalogue wiring for daw/vector/raster/3d selections.
 { pkgs, lib ? pkgs.lib }:
 let

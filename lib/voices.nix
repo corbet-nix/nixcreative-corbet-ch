@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # The voice-model catalogue: WHICH speech model a cluster workload serves, and the handful of facts
 # that decide whether you can run it.

@@ -668,18 +668,18 @@ arbitrates the one card all of this shares). [nixoffice][nixoffice], [nixaudio][
 [nixdesktop][nixdesktop] own the neighbouring subjects named above, and [nixarch][nixarch] is the
 Arch host reconciler the `systemManagerModules` backend publishes into.
 
-[nixmedia]: https://github.com/julian-corbet/nixmedia-corbet-ch
-[nixrecord]: https://github.com/julian-corbet/nixrecord-corbet-ch
-[nixsh]: https://github.com/julian-corbet/nixsh-corbet-ch
-[nixapps]: https://github.com/julian-corbet/nixapps-corbet-ch
-[nixgpu]: https://github.com/julian-corbet/nixgpu-corbet-ch
-[nixk3s]: https://github.com/julian-corbet/nixk3s-corbet-ch
-[nixoffice]: https://github.com/julian-corbet/nixoffice-corbet-ch
-[nixaudio]: https://github.com/julian-corbet/nixaudio-corbet-ch
-[nixfont]: https://github.com/julian-corbet/nixfont-corbet-ch
-[nixdesktop]: https://github.com/julian-corbet/nixdesktop-corbet-ch
-[nixarch]: https://github.com/julian-corbet/nixarch-corbet-ch
+[nixmedia]: https://github.com/corbet-nix/nixmedia-corbet-ch
+[nixrecord]: https://github.com/corbet-nix/nixrecord-corbet-ch
+[nixsh]: https://github.com/corbet-nix/nixsh-corbet-ch
+[nixapps]: https://github.com/corbet-nix/nixapps-corbet-ch
+[nixgpu]: https://github.com/corbet-nix/nixgpu-corbet-ch
+[nixk3s]: https://github.com/corbet-nix/nixk3s-corbet-ch
+[nixoffice]: https://github.com/corbet-nix/nixoffice-corbet-ch
+[nixaudio]: https://github.com/corbet-nix/nixaudio-corbet-ch
+[nixfont]: https://github.com/corbet-nix/nixfont-corbet-ch
+[nixdesktop]: https://github.com/corbet-nix/nixdesktop-corbet-ch
+[nixarch]: https://github.com/corbet-nix/nixarch-corbet-ch
 
-## License
+## Licence
 
-MIT.
+Outbound licence is `MIT OR Apache-2.0`. See `LICENSE-MIT` and `LICENSE-APACHE`; every source file carries `SPDX-License-Identifier: MIT OR Apache-2.0`.

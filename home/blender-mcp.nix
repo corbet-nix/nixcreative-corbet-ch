@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
 # Per-user half of the official Blender Lab MCP integration.
 #
 # Blender stores extension enablement and online-access permission in binary user preferences, so

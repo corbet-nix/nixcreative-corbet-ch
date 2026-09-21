@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: MIT OR Apache-2.0
 #
 # Re-verify the voice catalogue against the sources it claims to have been read from.
 #
